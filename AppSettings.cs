@@ -13,7 +13,12 @@ public sealed class AppSettings
     public string CaptureRegionHotkey { get; set; } = "Ctrl+Shift+S";
     public string FullScreenHotkey { get; set; } = "Ctrl+Shift+F";
     public string ActiveWindowHotkey { get; set; } = "Ctrl+Shift+W";
-    public string SaveFolder { get; set; } = @"C:\\Temp\\shot";
+    public string SaveFolder { get; set; } = @"C:\Temp\shot";
+
+    // Kích thước cố định (inch) áp cho ảnh copy vào Clipboard, để dán vào Excel/SharePoint
+    // luôn ra đúng Width/Height mong muốn mà không cần kéo tay. 0 = không áp dụng, giữ nguyên gốc.
+    public double ClipboardWidthInches { get; set; } = 0;
+    public double ClipboardHeightInches { get; set; } = 0;
 
     private static string FilePath => Path.Combine(AppContext.BaseDirectory, "settings.json");
 
@@ -71,6 +76,23 @@ public sealed class AppSettings
             {
                 return Path.GetTempPath();
             }
+        }
+    }
+
+    private const int ClipboardDpi = 96; // chuẩn DPI mặc định của GDI+/Office khi không có metadata khác
+
+    /// <summary>Kích thước pixel quy đổi từ ClipboardWidthInches/HeightInches, null nếu chưa cấu hình (= 0).</summary>
+    [JsonIgnore]
+    public Size? ClipboardPixelSize
+    {
+        get
+        {
+            if (ClipboardWidthInches <= 0 || ClipboardHeightInches <= 0)
+                return null;
+
+            int w = Math.Max(1, (int)Math.Round(ClipboardWidthInches * ClipboardDpi));
+            int h = Math.Max(1, (int)Math.Round(ClipboardHeightInches * ClipboardDpi));
+            return new Size(w, h);
         }
     }
 }

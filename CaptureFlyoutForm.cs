@@ -10,7 +10,7 @@ namespace QuickShot;
 /// </summary>
 public sealed class CaptureFlyoutForm : Form
 {
-    private const int HighlightMs = 3000; // DEBUG: tạm tăng để test paint
+    private const int HighlightMs = 350;
     private const int FlyMs = 400;
     private const int HoldMs = 1500;
     private const int FadeMs = 300;
@@ -119,9 +119,6 @@ public sealed class CaptureFlyoutForm : Form
     {
         base.OnPaint(e);
         if (_phase != Phase.Highlight) return;
-
-        using var brush = new SolidBrush(Color.FromArgb(120, Color.Red));
-        e.Graphics.FillRectangle(brush, ClientRectangle); // DEBUG: overlay đỏ dễ thấy
 
         using var pen = new Pen(Color.DeepSkyBlue, 3) { DashStyle = DashStyle.Dash };
         var rect = ClientRectangle;

@@ -6,8 +6,8 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        // Chạy bằng ApplicationContext (không có main form) => app ẩn hoàn toàn,
-        // chỉ hiện icon dưới khay hệ thống.
-        Application.Run(new TrayContext());
+        // MainWindow hiện trên taskbar (thu nhỏ sẵn) để người dùng biết app đang chạy,
+        // đồng thời vẫn giữ icon + menu ở khay hệ thống.
+        Application.Run(new MainWindow());
     }
 }

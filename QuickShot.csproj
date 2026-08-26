@@ -7,8 +7,17 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>app.ico</ApplicationIcon>
     <!-- Không hiện cửa sổ console -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Nhúng icon vào assembly để đọc lại lúc runtime cho Form/NotifyIcon,
+         không phụ thuộc file rời (quan trọng khi publish single-file). -->
+    <EmbeddedResource Include="app_runtime.ico">
+      <LogicalName>QuickShot.app_runtime.ico</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 
 </Project>
