@@ -32,7 +32,7 @@ public sealed class MainWindow : Form
     private static readonly AppSettings DefaultHotkeys = new();
 
     private readonly NotifyIcon _tray;
-    private readonly Label _statusLabel;
+    private readonly StatusView _statusView;
     private HotkeyWindow _hotkeys = null!;
     private AppSettings _settings = null!;
     private Rectangle? _savedRegion;   // vùng đã "nhớ"; null = chưa định nghĩa
@@ -52,19 +52,14 @@ public sealed class MainWindow : Form
         Text = "QuickShot";
         Icon = AppIcon;
         ShowInTaskbar = true;
-        ClientSize = new Size(380, 200);
+        ClientSize = new Size(420, 260);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MaximizeBox = false;
         StartPosition = FormStartPosition.CenterScreen;
+        BackColor = Theme.PanelBackground;
 
-        _statusLabel = new Label
-        {
-            Dock = DockStyle.Fill,
-            Padding = new Padding(12),
-            Font = new Font("Consolas", 9.5f),
-            TextAlign = ContentAlignment.TopLeft,
-        };
-        Controls.Add(_statusLabel);
+        _statusView = new StatusView { Dock = DockStyle.Fill };
+        Controls.Add(_statusView);
 
         _tray = new NotifyIcon
         {
@@ -152,18 +147,7 @@ public sealed class MainWindow : Form
     // ---- Nội dung cửa sổ trạng thái: hotkey hiện tại + tình trạng vùng đã lưu ----
     private void RefreshStatusText()
     {
-        string regionStatus = _savedRegion is { } r
-            ? $"Đã lưu vùng: {r.Width} x {r.Height}"
-            : "Chưa định nghĩa vùng";
-
-        _statusLabel.Text =
-            "Phím tắt hiện tại:\n" +
-            $"  Định nghĩa vùng      : {_settings.DefineRegionHotkey}\n" +
-            $"  Chụp vùng đã lưu     : {_settings.CaptureRegionHotkey}\n" +
-            $"  Chụp toàn màn hình   : {_settings.FullScreenHotkey}\n" +
-            $"  Chụp cửa sổ hiện tại : {_settings.ActiveWindowHotkey}\n" +
-            "\n" +
-            $"Trạng thái vùng: {regionStatus}";
+        _statusView.Refresh(_settings, _savedRegion);
     }
 
     private void ReloadSettings()

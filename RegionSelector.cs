@@ -1,16 +1,25 @@
+using System.Diagnostics;
 using System.Drawing.Drawing2D;
 
 namespace QuickShot;
 
 /// <summary>
-/// Overlay phủ TOÀN BỘ các màn hình (virtual screen), mờ đi, cho user kéo
-/// chuột chọn một khung chữ nhật. Trả về Rectangle theo tọa độ màn hình thật.
+/// Overlay phủ TOÀN BỘ các màn hình (virtual screen): nền tối có vignette nhẹ (đậm
+/// dần ra rìa) thay vì màu đen phẳng, fade-in nhanh lúc mở, cho user kéo chuột chọn
+/// một khung chữ nhật viền gradient. Trả về Rectangle theo tọa độ màn hình thật.
 /// </summary>
 public sealed class RegionSelector : Form
 {
+    private const int FadeInMs = 120;
+    private const float TargetOverlayOpacity = 0.42f;
+
     private Point _start;
     private Rectangle _selection;
     private bool _dragging;
+
+    private readonly System.Windows.Forms.Timer _fadeTimer;
+    private readonly Stopwatch _fadeStopwatch = new();
+    private Brush? _vignetteBrush;
 
     // Kết quả: null nếu user hủy (Esc / click không kéo)
     public Rectangle? Result { get; private set; }
@@ -25,7 +34,7 @@ public sealed class RegionSelector : Form
         FormBorderStyle = FormBorderStyle.None;
         ShowInTaskbar = false;
         TopMost = true;
-        Opacity = 0.30;              // lớp mờ
+        Opacity = 0.0;
         BackColor = Color.Black;
         Cursor = Cursors.Cross;
         DoubleBuffered = true;
@@ -34,11 +43,44 @@ public sealed class RegionSelector : Form
         MouseDown += OnMouseDown;
         MouseMove += OnMouseMove;
         MouseUp += OnMouseUp;
+
+        _fadeTimer = new System.Windows.Forms.Timer { Interval = 12 };
+        _fadeTimer.Tick += (_, _) =>
+        {
+            double t = Math.Min(1.0, _fadeStopwatch.ElapsedMilliseconds / (double)FadeInMs);
+            Opacity = TargetOverlayOpacity * Theme.EaseOutQuad(t);
+            if (t >= 1.0) _fadeTimer.Stop();
+        };
+    }
+
+    protected override void OnLoad(EventArgs e)
+    {
+        base.OnLoad(e);
+        _vignetteBrush = BuildVignetteBrush(ClientRectangle);
+        _fadeStopwatch.Start();
+        _fadeTimer.Start();
+    }
+
+    // Vẽ 1 lần lúc mở: PathGradientBrush tâm sáng hơn rìa một chút. Vì cả overlay
+    // đã bị Opacity của Form nhân xuống ~0.42 nên chênh lệch RGB ở đây vẫn giữ được
+    // cảm giác "đậm dần ra rìa" chứ không cần alpha khác nhau theo từng điểm.
+    private static Brush BuildVignetteBrush(Rectangle bounds)
+    {
+        using var path = new GraphicsPath();
+        path.AddEllipse(bounds.X - bounds.Width * 0.2f, bounds.Y - bounds.Height * 0.2f,
+            bounds.Width * 1.4f, bounds.Height * 1.4f);
+        return new PathGradientBrush(path)
+        {
+            CenterColor = Color.FromArgb(255, 18, 20, 26),
+            SurroundColors = new[] { Color.FromArgb(255, 4, 5, 8) },
+        };
     }
 
     private void OnMouseDown(object? s, MouseEventArgs e)
     {
         if (e.Button != MouseButtons.Left) return;
+        _fadeTimer.Stop();
+        Opacity = TargetOverlayOpacity;
         _dragging = true;
         _start = e.Location;
         _selection = new Rectangle(e.Location, Size.Empty);
@@ -75,20 +117,42 @@ public sealed class RegionSelector : Form
     protected override void OnPaint(PaintEventArgs e)
     {
         base.OnPaint(e);
+        if (_vignetteBrush != null)
+            e.Graphics.FillRectangle(_vignetteBrush, ClientRectangle);
+
         if (_selection.Width <= 0 || _selection.Height <= 0) return;
 
-        // "Khoét" vùng chọn cho sáng rõ + viền
-        using var brush = new SolidBrush(Color.FromArgb(60, Color.DeepSkyBlue));
-        e.Graphics.FillRectangle(brush, _selection);
+        e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
 
-        using var pen = new Pen(Color.DeepSkyBlue, 2) { DashStyle = DashStyle.Dash };
-        e.Graphics.DrawRectangle(pen, _selection);
+        using (var fillBrush = new SolidBrush(Color.FromArgb(50, Theme.AccentStart)))
+            e.Graphics.FillRectangle(fillBrush, _selection);
 
-        // Hiện kích thước đang kéo
+        using (var borderBrush = Theme.AccentBrush(_selection))
+        using (var pen = new Pen(borderBrush, 2f) { DashStyle = DashStyle.Dash })
+            e.Graphics.DrawRectangle(pen, _selection);
+
+        DrawSizeLabel(e.Graphics);
+    }
+
+    private void DrawSizeLabel(Graphics g)
+    {
         string label = $"{_selection.Width} x {_selection.Height}";
-        using var font = new Font("Segoe UI", 10, FontStyle.Bold);
-        e.Graphics.DrawString(label, font, Brushes.White,
-            _selection.X, Math.Max(0, _selection.Y - 22));
+        using var font = new Font("Segoe UI", 9.5f, FontStyle.Bold);
+        var textSize = g.MeasureString(label, font);
+        var pillRect = new RectangleF(_selection.X, Math.Max(0, _selection.Y - textSize.Height - 14),
+            textSize.Width + 16, textSize.Height + 8);
+
+        using var pillPath = Theme.RoundedRect(pillRect, pillRect.Height / 2f);
+        using var pillBrush = Theme.AccentBrush(pillRect);
+        g.FillPath(pillBrush, pillPath);
+        g.DrawString(label, font, Brushes.White, pillRect.X + 8, pillRect.Y + 4);
+    }
+
+    protected override void OnFormClosed(FormClosedEventArgs e)
+    {
+        base.OnFormClosed(e);
+        _fadeTimer.Dispose();
+        _vignetteBrush?.Dispose();
     }
 
     // Ẩn khỏi Alt+Tab
